@@ -1,6 +1,18 @@
 
 # Development
 
+Add desired ports to docker-compose.override.yml:
+```yaml
+version: "3"
+
+services:
+  cache:
+    ports:
+      - 81:80
+      - 444:443
+
+```
+
 To run:
 
 ```bash
