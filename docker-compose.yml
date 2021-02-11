@@ -4,6 +4,9 @@ services:
   imaginary:
     image: h2non/imaginary:1.2.4
     command: -concurrency 10 -enable-url-source
+    #command: -concurrency 10 -mount /images
+    #volumes:
+    #  - ./images:/images
     #environment:
       #DEBUG: "*"
 
@@ -12,10 +15,7 @@ services:
     volumes:
       - ./cache/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./cache/imaginary.conf:/etc/nginx/imaginary.conf:ro
-      - ./img-cache:/cache
-      - ./certs:/certs
+      #- ./img-cache:/cache
+      #- ./certs:/certs
     #environment:
       #IMAGINARY_URL: http://imaginary:9000
-    ports:
-      - 80
-      - 443

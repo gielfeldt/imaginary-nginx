@@ -1,11 +1,16 @@
 
-# Starting
+# Development
 
 To run:
 
 ```bash
 docker-compose up -d
 ```
+
+# Starting
+
+docker run -d --name imaginary h2non/imaginary:1.2.4 -concurrency 10 -enable-url-source
+docker run -d -p80:80 --link imaginary gielfeldt/imaginary-nginx
 
 # Using
 
