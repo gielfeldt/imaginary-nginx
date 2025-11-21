@@ -98,9 +98,6 @@ curl -k 'https://localhost/thumbnail?width=640&url=https://example.com/image.jpg
 ### Cache Control
 
 ```bash
-# Bypass cache (if BYPASS_CACHE=1)
-curl 'http://localhost/thumbnail?width=640&nocache=1&url=https://example.com/image.jpg'
-
 # Check cache status
 curl -I 'http://localhost/thumbnail?width=640&url=https://example.com/image.jpg'
 # Look for X-Proxy-Cache: HIT/MISS

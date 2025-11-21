@@ -223,12 +223,16 @@ location ~* ^/thumbnail/ {
 }
 ```
 
-#### Query Parameter Bypass
-```nginx
-# Bypass cache with ?nocache=1
-if ($args ~* "nocache=1") {
-    set $bypass_cache 1;
-}
+#### Environment Variable Bypass
+
+The cache bypass is controlled via the `BYPASS_CACHE` environment variable:
+
+```bash
+# Set in docker-compose.yml
+services:
+  cache:
+    environment:
+      BYPASS_CACHE: "1"  # Bypass all caching
 ```
 
 #### Header-Based Bypass
