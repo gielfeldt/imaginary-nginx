@@ -54,12 +54,12 @@ Imaginary Nginx sits in front of the Imaginary image processing service to provi
 
 3. **Test the service:**
    ```bash
-   curl -I 'http://localhost/thumbnail?width=640&quality=95&url=https://homepages.cae.wisc.edu/~ece533/images/baboon.png'
+   curl -I -k 'https://localhost/thumbnail?width=640&quality=95&url=https://images-assets.nasa.gov/image/KSC-20251113-PH-BLU01_0008/KSC-20251113-PH-BLU01_0008~medium.jpg'
    ```
 
-### Custom Port Mapping
+### Port Mapping
 
-Create `docker-compose.override.yml` to map different ports:
+By default, no ports are mapped. Create `docker-compose.override.yml` to expose the service:
 
 ```yaml
 version: "3"
@@ -67,11 +67,25 @@ version: "3"
 services:
   cache:
     ports:
-      - 8080:80
-      - 8443:443
+      - "80:80"    # HTTP (redirects to HTTPS)
+      - "443:443"  # HTTPS
 ```
 
 Then run `docker-compose up -d`.
+
+**For custom ports** (if you need to avoid conflicts), use different host ports:
+```yaml
+services:
+  cache:
+    ports:
+      - "8080:80"   # HTTP on port 8080
+      - "8443:443"  # HTTPS on port 8443
+```
+
+**Note**: If using custom ports, update curl examples to include the port number:
+```bash
+curl -k 'https://localhost:8443/thumbnail?width=400&url=...'
+```
 
 ## Usage Examples
 
@@ -79,27 +93,30 @@ Then run `docker-compose up -d`.
 
 ```bash
 # Thumbnail generation
-curl 'http://localhost/thumbnail?width=400&height=300&url=https://example.com/image.jpg'
+curl -k 'https://localhost/thumbnail?width=400&height=300&url=https://images-assets.nasa.gov/image/KSC-20251113-PH-BLU01_0008/KSC-20251113-PH-BLU01_0008~medium.jpg'
 
 # Resize with quality control
-curl 'http://localhost/resize?width=800&quality=85&url=https://example.com/image.jpg'
+curl -k 'https://localhost/resize?width=800&quality=85&url=https://images-assets.nasa.gov/image/KSC-20251113-PH-BLU01_0008/KSC-20251113-PH-BLU01_0008~medium.jpg'
 
 # Crop and resize
-curl 'http://localhost/crop?width=500&height=500&quality=90&url=https://example.com/image.jpg'
+curl -k 'https://localhost/crop?width=500&height=500&quality=90&url=https://images-assets.nasa.gov/image/KSC-20251113-PH-BLU01_0008/KSC-20251113-PH-BLU01_0008~medium.jpg'
 ```
 
 ### SSL/HTTPS Usage
 
 ```bash
 # Using HTTPS with self-signed certificate
-curl -k 'https://localhost/thumbnail?width=640&url=https://example.com/image.jpg'
+curl -k 'https://localhost/thumbnail?width=640&url=https://images-assets.nasa.gov/image/KSC-20251113-PH-BLU01_0008/KSC-20251113-PH-BLU01_0008~medium.jpg'
+
+# Alternative: Show SSL certificate details
+curl -vI -k 'https://localhost/thumbnail?width=640&url=https://images-assets.nasa.gov/image/KSC-20251113-PH-BLU01_0008/KSC-20251113-PH-BLU01_0008~medium.jpg'
 ```
 
 ### Cache Control
 
 ```bash
 # Check cache status
-curl -I 'http://localhost/thumbnail?width=640&url=https://example.com/image.jpg'
+curl -I -k 'https://localhost/thumbnail?width=640&url=https://images-assets.nasa.gov/image/KSC-20251113-PH-BLU01_0008/KSC-20251113-PH-BLU01_0008~medium.jpg'
 # Look for X-Proxy-Cache: HIT/MISS
 ```
 
