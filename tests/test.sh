@@ -122,6 +122,11 @@ test_response_headers() {
     echo "$headers" | grep -q "X-Proxy-Cache"
 }
 
+test_quality_parameter() {
+    # Test with quality parameter
+    curl -k -s --connect-timeout $TIMEOUT "$BASE_URL:$HTTPS_PORT/thumbnail?width=100&quality=90&url=$TEST_IMAGE_URL" >/dev/null
+}
+
 # Save results to files
 save_results() {
     local results_dir="${1:-/tmp/test-results}"
@@ -171,6 +176,7 @@ main() {
     run_test_with_output "Security headers present" "test_security_headers"
     run_test "Image operations (thumbnail/resize)" "test_image_operations"
     run_test "Response headers present" "test_response_headers"
+    run_test "Quality parameter support" "test_quality_parameter"
 
     # Results
     echo -e "\n${BLUE}========================================${NC}"
