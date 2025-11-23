@@ -133,6 +133,12 @@ test_server_version_hidden() {
     ! echo "$headers" | grep -q "nginx/[0-9]"
 }
 
+test_error_handling() {
+    # Test invalid URL should return error status (400, 404 or 500)
+    local status_code=$(curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout $TIMEOUT "$BASE_URL:$HTTPS_PORT/thumbnail?width=100&url=https://invalid.example.com/image.jpg")
+    [[ "$status_code" == "400" || "$status_code" == "404" || "$status_code" == "500" ]]
+}
+
 # Save results to files
 save_results() {
     local results_dir="${1:-/tmp/test-results}"
@@ -184,6 +190,7 @@ main() {
     run_test "Response headers present" "test_response_headers"
     run_test "Quality parameter support" "test_quality_parameter"
     run_test "Server version hidden" "test_server_version_hidden"
+    run_test "Error handling (invalid URLs)" "test_error_handling"
 
     # Results
     echo -e "\n${BLUE}========================================${NC}"
