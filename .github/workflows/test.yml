@@ -2,13 +2,13 @@ name: Tests
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, master, develop, ai-optimization ]
   pull_request:
     branches: [ main, master, develop ]
   workflow_dispatch:
 
 jobs:
-  test-isolated:
+  test:
     runs-on: ubuntu-latest
 
     steps:
@@ -18,24 +18,31 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Make test scripts executable
-      run: |
-        chmod +x tests/test.sh
-        chmod +x tests/run-isolated-tests.sh
+    - name: Make test script executable
+      run: chmod +x tests/test.sh
 
-    - name: Create test results directory
-      run: mkdir -p test-results
-
-    - name: Run isolated tests
+    - name: Run tests
       run: |
-        export TEST_IMAGE_URL="https://httpbin.org/image/jpeg"
+        export TEST_IMAGE_URL="https://images-assets.nasa.gov/image/KSC-20251113-PH-BLU01_0008/KSC-20251113-PH-BLU01_0008~medium.jpg"
         export TIMEOUT="15"
-
-        echo "Running isolated test suite..."
+        echo "Running test suite..."
         echo "TEST_IMAGE_URL: $TEST_IMAGE_URL"
         echo "TIMEOUT: $TIMEOUT"
+        make test
 
-        ./tests/run-isolated-tests.sh --verbose
+    - name: Display test results
+      if: always()
+      run: |
+        echo "=== Test Results ==="
+        if [ -f test-results/test_results.json ]; then
+          echo "JSON Results:"
+          cat test-results/test_results.json
+        fi
+        if [ -f test-results/test_summary.txt ]; then
+          echo ""
+          echo "Summary:"
+          cat test-results/test_summary.txt
+        fi
 
     - name: Upload test results
       if: always()
@@ -45,79 +52,9 @@ jobs:
         path: test-results/
         retention-days: 30
 
-    - name: Cleanup test environment
-      if: always()
-      run: |
-        ./tests/run-isolated-tests.sh --clean
-        docker system prune -f
-
-  test-local:
-    runs-on: ubuntu-latest
-    # Run this as a backup to ensure compatibility with local testing
-    if: github.event_name == 'pull_request'
-
-    services:
-      docker:
-        image: docker:24.0.6-dind
-        options: --privileged
-        env:
-          DOCKER_TLS_CERTDIR: /certs
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Create test override for local compatibility
-      run: |
-        cat > docker-compose.override.yml << EOF
-        version: "3.8"
-        services:
-          cache:
-            ports:
-              - "80:80"
-              - "443:443"
-          imaginary:
-            ports:
-              - "9000:9000"
-        EOF
-
-    - name: Build and start services
-      run: |
-        docker-compose up -d --build
-        sleep 15
-
-    - name: Wait for services
-      run: |
-        for i in {1..30}; do
-          if curl -k -s --connect-timeout 5 https://localhost/thumbnail?width=100&url=https://httpbin.org/image/jpeg >/dev/null 2>&1; then
-            echo "Service ready!"
-            break
-          fi
-          echo "Attempt $i/30..."
-          sleep 2
-          if [ $i -eq 30 ]; then
-            echo "Service not ready"
-            docker-compose logs
-            exit 1
-          fi
-        done
-
-    - name: Install dependencies
-      run: sudo apt-get update && sudo apt-get install -y curl openssl bc
-
-    - name: Run local tests
-      run: |
-        export BASE_URL="https://localhost" HTTPS_PORT="443" HTTP_PORT="80" TEST_IMAGE_URL="https://httpbin.org/image/jpeg" TEST_ENV="local"
-        ./tests/test.sh
-
     - name: Cleanup
       if: always()
-      run: |
-        docker-compose down -v
-        rm -f docker-compose.override.yml
+      run: docker system prune -f
 
   security-scan:
     runs-on: ubuntu-latest
