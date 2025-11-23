@@ -127,6 +127,12 @@ test_quality_parameter() {
     curl -k -s --connect-timeout $TIMEOUT "$BASE_URL:$HTTPS_PORT/thumbnail?width=100&quality=90&url=$TEST_IMAGE_URL" >/dev/null
 }
 
+test_server_version_hidden() {
+    local headers=$(curl -I -k -s --connect-timeout $TIMEOUT "$BASE_URL:$HTTPS_PORT/thumbnail?width=100&url=$TEST_IMAGE_URL")
+    # Should not reveal server version
+    ! echo "$headers" | grep -q "nginx/[0-9]"
+}
+
 # Save results to files
 save_results() {
     local results_dir="${1:-/tmp/test-results}"
@@ -177,6 +183,7 @@ main() {
     run_test "Image operations (thumbnail/resize)" "test_image_operations"
     run_test "Response headers present" "test_response_headers"
     run_test "Quality parameter support" "test_quality_parameter"
+    run_test "Server version hidden" "test_server_version_hidden"
 
     # Results
     echo -e "\n${BLUE}========================================${NC}"
