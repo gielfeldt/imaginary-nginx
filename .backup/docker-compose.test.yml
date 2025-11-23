@@ -1,0 +1,64 @@
+services:
+  imaginary-test:
+    image: h2non/imaginary:1.2.4
+    container_name: imaginary-test
+    command: -concurrency 10 -enable-url-source
+    networks:
+      - test-network
+    environment:
+      - PORT=9000
+    # No health check - Imaginary container doesn't have curl
+
+  cache-test:
+    build:
+      context: ./
+      dockerfile: tests/Dockerfile.cache
+    container_name: cache-test
+    networks:
+      - test-network
+    volumes:
+      - ./cache/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./cache/imaginary.conf:/etc/nginx/imaginary.conf:ro
+    environment:
+      - IMAGINARY_URL=http://imaginary-test:9000
+      - BYPASS_CACHE=0
+    depends_on:
+      - imaginary-test
+    healthcheck:
+      test: ["CMD", "sh", "-c", "curl -k -f https://localhost:443/health || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: tests/Dockerfile.test
+    container_name: test-runner
+    networks:
+      - test-network
+    environment:
+      - BASE_URL=https://cache-test
+      - HTTPS_PORT=443
+      - HTTP_PORT=80
+      - TEST_IMAGE_URL=https://images-assets.nasa.gov/image/KSC-20251113-PH-BLU01_0008/KSC-20251113-PH-BLU01_0008~medium.jpg
+      - TIMEOUT=10
+    depends_on:
+      cache-test:
+        condition: service_healthy
+    volumes:
+      - ./test-results:/tmp/test-results
+    command: ["/tests/test.sh"]
+    cap_drop:
+      - ALL
+
+networks:
+  test-network:
+    driver: bridge
+    name: imaginary-test-network
+    internal: false
+
+volumes:
+  test-results:
+    name: imaginary-test-results

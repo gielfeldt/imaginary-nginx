@@ -1,0 +1,165 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  test-isolated:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Make test scripts executable
+      run: |
+        chmod +x tests/test.sh
+        chmod +x tests/run-isolated-tests.sh
+
+    - name: Create test results directory
+      run: mkdir -p test-results
+
+    - name: Run isolated tests
+      run: |
+        export TEST_IMAGE_URL="https://httpbin.org/image/jpeg"
+        export TIMEOUT="15"
+
+        echo "Running isolated test suite..."
+        echo "TEST_IMAGE_URL: $TEST_IMAGE_URL"
+        echo "TIMEOUT: $TIMEOUT"
+
+        ./tests/run-isolated-tests.sh --verbose
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: test-results/
+        retention-days: 30
+
+    - name: Cleanup test environment
+      if: always()
+      run: |
+        ./tests/run-isolated-tests.sh --clean
+        docker system prune -f
+
+  test-local:
+    runs-on: ubuntu-latest
+    # Run this as a backup to ensure compatibility with local testing
+    if: github.event_name == 'pull_request'
+
+    services:
+      docker:
+        image: docker:24.0.6-dind
+        options: --privileged
+        env:
+          DOCKER_TLS_CERTDIR: /certs
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Create test override for local compatibility
+      run: |
+        cat > docker-compose.override.yml << EOF
+        version: "3.8"
+        services:
+          cache:
+            ports:
+              - "80:80"
+              - "443:443"
+          imaginary:
+            ports:
+              - "9000:9000"
+        EOF
+
+    - name: Build and start services
+      run: |
+        docker-compose up -d --build
+        sleep 15
+
+    - name: Wait for services
+      run: |
+        for i in {1..30}; do
+          if curl -k -s --connect-timeout 5 https://localhost/thumbnail?width=100&url=https://httpbin.org/image/jpeg >/dev/null 2>&1; then
+            echo "Service ready!"
+            break
+          fi
+          echo "Attempt $i/30..."
+          sleep 2
+          if [ $i -eq 30 ]; then
+            echo "Service not ready"
+            docker-compose logs
+            exit 1
+          fi
+        done
+
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y curl openssl bc
+
+    - name: Run local tests
+      run: |
+        export BASE_URL="https://localhost" HTTPS_PORT="443" HTTP_PORT="80" TEST_IMAGE_URL="https://httpbin.org/image/jpeg" TEST_ENV="local"
+        ./tests/test.sh
+
+    - name: Cleanup
+      if: always()
+      run: |
+        docker-compose down -v
+        rm -f docker-compose.override.yml
+
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  docker-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build Docker image
+      run: |
+        docker build -t imaginary-nginx:test ./cache
+
+    - name: Run Trivy on Docker image
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'imaginary-nginx:test'
+        format: 'sarif'
+        output: 'trivy-docker-results.sarif'
+
+    - name: Upload Docker scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-docker-results.sarif'
