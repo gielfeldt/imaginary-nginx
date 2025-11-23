@@ -116,6 +116,12 @@ test_image_operations() {
     curl -k -s --connect-timeout $TIMEOUT "$BASE_URL:$HTTPS_PORT/resize?width=800&url=$TEST_IMAGE_URL" >/dev/null
 }
 
+test_response_headers() {
+    # Should have cache status header
+    local headers=$(curl -I -k -s --connect-timeout $TIMEOUT "$BASE_URL:$HTTPS_PORT/thumbnail?width=100&url=$TEST_IMAGE_URL")
+    echo "$headers" | grep -q "X-Proxy-Cache"
+}
+
 # Save results to files
 save_results() {
     local results_dir="${1:-/tmp/test-results}"
@@ -164,6 +170,7 @@ main() {
     run_test "HTTPS redirect (HTTP → HTTPS)" "test_https_redirect"
     run_test_with_output "Security headers present" "test_security_headers"
     run_test "Image operations (thumbnail/resize)" "test_image_operations"
+    run_test "Response headers present" "test_response_headers"
 
     # Results
     echo -e "\n${BLUE}========================================${NC}"
